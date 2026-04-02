@@ -1,0 +1,25 @@
+# Local env and secrets (never commit)
+.env
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Crew outputs (optional — remove these lines if you want to track them)
+researcher.txt
+writer.txt

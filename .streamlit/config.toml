@@ -1,0 +1,7 @@
+# Streamlit server and theme defaults (optional).
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
