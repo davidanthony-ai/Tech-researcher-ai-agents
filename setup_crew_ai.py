@@ -1,7 +1,8 @@
 """
 CrewAI crew: researcher (Serper web search) + writer, sequential process.
 Env: OPENAI_API_KEY, SERPER_API_KEY (.env — see .env_example).
-Optional: USE_OLLAMA=1, OLLAMA_MODEL, OLLAMA_HOST, LLM_TEMPERATURE, OPENAI_MODEL.
+Optional: USE_OLLAMA=1, OLLAMA_MODEL, OLLAMA_HOST, LLM_TEMPERATURE, OPENAI_MODEL,
+CREW_RESEARCHER_MAX_ITER, CREW_WRITER_MAX_ITER (cap LLM/tool loops — default was 25 in CrewAI).
 Uses crewai.llm.LLM (not LangChain chat models — required by CrewAI 1.x Agent validation).
 """
 
@@ -19,6 +20,16 @@ load_dotenv(ROOT / ".env")
 
 class CrewConfigurationError(RuntimeError):
     """Raised when required environment variables or configuration are missing."""
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
 
 
 def _require_env(name: str) -> str:
@@ -50,6 +61,10 @@ def get_llm():
 def build_agents(llm, search_tool, *, verbose: bool = True):
     from crewai import Agent
 
+    # CrewAI default max_iter is 25 — each step can be LLM + Serper call, so runs easily exceed 5+ minutes.
+    researcher_max_iter = _int_env("CREW_RESEARCHER_MAX_ITER", 7)
+    writer_max_iter = _int_env("CREW_WRITER_MAX_ITER", 5)
+
     researcher = Agent(
         role="Senior Research Analyst",
         goal="Uncover cutting-edge developments in AI and data science",
@@ -60,6 +75,7 @@ def build_agents(llm, search_tool, *, verbose: bool = True):
         allow_delegation=False,
         llm=llm,
         tools=[search_tool],
+        max_iter=researcher_max_iter,
     )
     writer = Agent(
         role="Tech Content Strategist",
@@ -67,8 +83,9 @@ def build_agents(llm, search_tool, *, verbose: bool = True):
         backstory="""You are a renowned Content Strategist, known for your insightful and engaging articles.
         You transform complex concepts into compelling narratives.""",
         verbose=verbose,
-        allow_delegation=True,
+        allow_delegation=False,
         llm=llm,
+        max_iter=writer_max_iter,
     )
     return researcher, writer
 
@@ -85,17 +102,17 @@ def build_tasks(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     task_research = Task(
-        description=f"""Conduct a comprehensive analysis of the latest advancements in {research_focus}
-        ({year_label}). Identify key trends, breakthrough technologies, and potential industry impacts.""",
-        expected_output="Full analysis report in bullet points",
+        description=f"""Summarize the latest advancements in {research_focus} ({year_label}).
+        Be efficient: use the web search tool at most 2 times (broad queries, then refine only if needed).
+        Focus on the highest-signal trends and impacts — do not aim for exhaustive coverage.""",
+        expected_output="5–8 bullet points, one sentence each where possible",
         agent=researcher,
         output_file=str(output_dir / "researcher.txt"),
     )
     task_write = Task(
-        description=f"""Using the researcher's report on {research_focus}, write an engaging blog post highlighting
-        the most significant developments. Keep it accessible for a tech-savvy audience, natural in tone,
-        and avoid hollow jargon or an obviously AI-generated style.""",
-        expected_output="Full blog post of at least 4 paragraphs",
+        description=f"""Using only the researcher's bullet list on {research_focus}, write a short blog post.
+        No new web search. Accessible for a tech-savvy audience, natural tone, avoid hollow AI-speak.""",
+        expected_output="3–4 paragraphs, roughly 80–150 words each",
         agent=writer,
         output_file=str(output_dir / "writer.txt"),
     )

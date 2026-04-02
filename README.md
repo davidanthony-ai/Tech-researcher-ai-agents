@@ -55,6 +55,8 @@ Outputs are written next to the script by default (`researcher.txt`, `writer.txt
 | `USE_OLLAMA` | No | Set to `1`, `true`, or `yes` to use Ollama |
 | `OLLAMA_MODEL` | No | Default: `llama3.1` |
 | `OLLAMA_HOST` | No | Ollama OpenAI-compatible base URL (see [CrewAI docs](https://docs.crewai.com/)) |
+| `CREW_RESEARCHER_MAX_ITER` | No | Caps researcher LLM/tool loops (default `7`; CrewAI’s default is `25` and is slow) |
+| `CREW_WRITER_MAX_ITER` | No | Caps writer loops (default `5`) |
 
 Never commit `.env` or `.streamlit/secrets.toml`.
 
